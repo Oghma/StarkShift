@@ -9,10 +9,10 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
 starknet-py = "^0.22.0"
+python-dotenv = "^1.0.1"
+ccxt = "^4.3.56"
+rich = "^13.7.1"
 
-
-[tool.poetry.group.dev.dependencies]
-ipython = "^8.26.0"
 
 [build-system]
 requires = ["poetry-core"]
