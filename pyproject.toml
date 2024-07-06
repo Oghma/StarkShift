@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "starknet-trades"
+name = "starknet-arbitrage"
 version = "0.1.0"
-description = "An arbitrage CEX-DEX bot."
+description = "An arbitrage CEX-DEX, DEX-DEX bot operating on starknet."
 authors = ["Matteo Lisotto <matteo.lisotto@gmail.com>"]
 license = "MIT"
 readme = "README.md"
