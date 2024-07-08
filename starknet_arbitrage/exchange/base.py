@@ -8,5 +8,5 @@ from core.types import Symbol
 
 class Exchange:
     @abc.abstractmethod
-    async def subscribe_ticker(self, symbol: Symbol) -> asyncio.Queue:
+    async def subscribe_ticker(self, symbol: Symbol, **_) -> asyncio.Queue:
         pass
