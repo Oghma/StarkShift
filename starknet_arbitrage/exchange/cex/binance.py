@@ -1,24 +1,24 @@
-"""Binance exhange interface."""
+"""Binance exchange interface."""
 
 import asyncio
 from decimal import Decimal
 
-from ccxt import Exchange
 import ccxt.pro
 
 from core.types import Symbol, Ticker
+from ..base import Exchange
 
 
 class Binance(Exchange):
-    """Binance exchange representation."""
+    """Binance exchange."""
 
-    def __init__(self) -> None:
+    def __init__(self, **_) -> None:
         self._exchange_handle = ccxt.pro.binance()
         self._ticker_queues = {}
 
-    async def subscribe_ticker(self, symbol: Symbol) -> asyncio.Queue:
+    async def subscribe_ticker(self, symbol: Symbol, **_) -> asyncio.Queue:
         """Subscribe to the ticker."""
-        exchange_symbol = f"{symbol.base}{symbol.quote}"
+        exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
         queue = asyncio.Queue()
         self._ticker_queues[exchange_symbol] = queue
 
@@ -31,6 +31,8 @@ class Binance(Exchange):
 
         while True:
             msg = await self._exchange_handle.watch_ticker(symbol)
+            msg["info"]["sourceName"] = "binance"
+
             ticker = Ticker(
                 msg,
                 Decimal(msg["info"]["b"]),
