@@ -12,6 +12,7 @@ starknet-py = "^0.22.0"
 python-dotenv = "^1.0.1"
 ccxt = "^4.3.56"
 rich = "^13.7.1"
+aiosqlite = "^0.20.0"
 
 
 [build-system]
