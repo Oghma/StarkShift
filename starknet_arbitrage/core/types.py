@@ -24,3 +24,10 @@ class Ticker:
     bid_amount: Decimal
     ask: Decimal
     ask_amount: Decimal
+
+
+@dataclass
+class Wallet:
+    raw: dict
+    token: Token
+    amount: Decimal
