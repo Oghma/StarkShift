@@ -3,12 +3,18 @@
 import asyncio
 from decimal import Decimal
 import decimal
+import typing
 
-from ccxt.async_support.base.exchange import aiohttp
+from starknet_py.net.account.account import Account
+import aiohttp
 import requests
 
-from core.types import Symbol, Ticker
-from ..base import Exchange
+from core.types import Symbol, Ticker, Token, Wallet
+from exchange.base import Exchange
+
+ETH = Token(
+    "ETH", "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", 18
+)
 
 
 URLS = {
@@ -21,11 +27,13 @@ URLS = {
 class AVNU(Exchange):
     """AVNU exchange."""
 
-    def __init__(self) -> None:
+    def __init__(self, account: Account) -> None:
+        self._account = account
         # Fetch available dexes
         response = requests.get(f"{URLS['base']}/{URLS['sources']}")
         self._available_dexes = [dex["name"] for dex in response.json()]
         self._last_prices = {dex: Decimal("0") for dex in self._available_dexes}
+        self._wallet_queue = asyncio.Queue()
 
     async def _handle_ticker(
         self,
@@ -64,6 +72,15 @@ class AVNU(Exchange):
 
                 await asyncio.sleep(1)
 
+    async def _fetch_balance(self, symbol: typing.Optional[Symbol] = None):
+        tokens = [ETH] if symbol is None else [symbol.base, symbol.quote]
+
+        for token in tokens:
+            amount = await self._account.get_balance(token.address)
+            await self._wallet_queue.put(
+                Wallet({"amount": amount}, ETH, Decimal(amount) / 10**18)
+            )
+
     async def subscribe_ticker(
         self, symbol: Symbol, amount: decimal.Decimal, keep_best: bool = True, **_
     ) -> asyncio.Queue:
@@ -71,3 +88,9 @@ class AVNU(Exchange):
         asyncio.create_task(self._handle_ticker(queue, symbol, keep_best, amount))
 
         return queue
+
+    async def subscribe_wallet(
+        self, symbol: typing.Optional[Symbol] = None
+    ) -> asyncio.Queue:
+        asyncio.create_task(self._fetch_balance(symbol))
+        return self._wallet_queue
