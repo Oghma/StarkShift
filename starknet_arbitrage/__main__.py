@@ -18,31 +18,34 @@ class ValidationError(Exception):
 
 class Config:
 
+    REQUIRED_KEYS = {
+        "BASE_ADDR",
+        "BASE_DECIMALS",
+        "BASE",
+        "QUOTE_ADDR",
+        "QUOTE_DECIMALS",
+        "QUOTE",
+        "SWAP_AMOUNT",
+        "API_KEY",
+        "SECRET_KEY",
+    }
+
     def __init__(self, config: dict) -> None:
-        if "BASE" not in config:
-            raise ValidationError("Missing `BASE`")
-        if "BASE_ADDR" not in config:
-            raise ValidationError("Missing `BASE_ADDR`")
-        if "BASE_DECIMALS" not in config:
-            raise ValidationError("Missing `BASE_DECIMALS`")
+        for key in self.REQUIRED_KEYS:
+            if key not in config:
+                raise ValidationError(f"Missing `key`")
+
         self.base = Token(
             config["BASE"], config["BASE_ADDR"], int(config["BASE_DECIMALS"])
         )
-
-        if "QUOTE" not in config:
-            raise ValidationError("Missing `QUOTE`")
-        if "QUOTE_ADDR" not in config:
-            raise ValidationError("Missing `QUOTE_ADDR`")
-        if "QUOTE_DECIMALS" not in config:
-            raise ValidationError("Missing `QUOTE_DECIMALS`")
         self.quote = Token(
             config["QUOTE"], config["QUOTE_ADDR"], int(config["QUOTE_DECIMALS"])
         )
         self.symbol = Symbol(self.base, self.quote)
-
-        if "SWAP_AMOUNT" not in config:
-            raise ValidationError("Missing `SWAP_AMOUNT`")
         self.amount = int(config["SWAP_AMOUNT"])
+
+        self.api_key = config["API_KEY"]
+        self.secret_key = config["SECRET_KEY"]
 
 
 async def main():
