@@ -16,15 +16,6 @@ class Binance(Exchange):
         self._exchange_handle = ccxt.pro.binance()
         self._ticker_queues = {}
 
-    async def subscribe_ticker(self, symbol: Symbol, **_) -> asyncio.Queue:
-        """Subscribe to the ticker."""
-        exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
-        queue = asyncio.Queue()
-        self._ticker_queues[exchange_symbol] = queue
-
-        asyncio.create_task(self._handle_ticker(exchange_symbol))
-        return queue
-
     async def _handle_ticker(self, symbol: str):
         """Handle ticker messages and connection."""
         queue = self._ticker_queues[symbol]
@@ -42,3 +33,12 @@ class Binance(Exchange):
             )
 
             await queue.put(ticker)
+
+    async def subscribe_ticker(self, symbol: Symbol, **_) -> asyncio.Queue:
+        """Subscribe to the ticker."""
+        exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
+        queue = asyncio.Queue()
+        self._ticker_queues[exchange_symbol] = queue
+
+        asyncio.create_task(self._handle_ticker(exchange_symbol))
+        return queue
