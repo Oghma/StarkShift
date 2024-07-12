@@ -6,7 +6,7 @@ import typing
 
 import ccxt.pro
 
-from core.types import Symbol, Ticker, Token, Wallet
+from ...core.types import Symbol, Ticker, Token, Wallet
 from ..base import Exchange
 
 

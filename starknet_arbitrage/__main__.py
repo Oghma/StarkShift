@@ -5,11 +5,11 @@ import os
 from dotenv import dotenv_values
 from rich.logging import RichHandler
 
-from arbitrage import Arbitrage
-from price_monitor import SpreadMonitor
-from core.types import Symbol, Token
-from exchange.cex.binance import Binance
-from exchange.dex.avnu import AVNU
+from .arbitrage import Arbitrage
+from .core.types import Symbol, Token
+from .exchange.cex.binance import Binance
+from .exchange.dex.avnu import AVNU
+from .starknet import Starknet
 
 
 class ValidationError(Exception):

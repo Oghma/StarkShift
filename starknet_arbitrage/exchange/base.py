@@ -4,7 +4,7 @@ import abc
 import asyncio
 import typing
 
-from core.types import Symbol
+from ..core.types import Symbol
 
 
 class Exchange:

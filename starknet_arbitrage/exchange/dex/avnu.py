@@ -9,8 +9,8 @@ from starknet_py.net.account.account import Account
 import aiohttp
 import requests
 
-from core.types import Symbol, Ticker, Token, Wallet
-from exchange.base import Exchange
+from ...core.types import Symbol, Ticker, Token, Wallet
+from ..base import Exchange
 
 ETH = Token(
     "ETH", "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7", 18
