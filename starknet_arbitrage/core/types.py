@@ -1,5 +1,7 @@
 """Bot custom types."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -34,3 +36,10 @@ class Wallet:
     raw: dict
     token: Token
     amount: Decimal
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}(token={self.token}, amount={self.amount})"
+
+    @staticmethod
+    def empty(token: Token) -> Wallet:
+        return Wallet({}, token, Decimal(0))
