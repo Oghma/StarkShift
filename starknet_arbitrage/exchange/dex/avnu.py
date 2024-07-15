@@ -20,7 +20,8 @@ ETH = Token(
 
 URLS = {
     "base": "https://starknet.api.avnu.fi",
-    "ticker": "swap/v2/prices",
+    "ticker": "swap/v2/quotes",
+    "prices": "swap/v2/prices",
     "sources": "/swap/v2/sources",
 }
 
@@ -41,7 +42,7 @@ class AVNU(Exchange):
     def __str__(self) -> str:
         return f"{type(self).__name__}"
 
-    async def _handle_ticker(
+    async def _handle_prices_quotes(
         self,
         queue: asyncio.Queue,
         symbol: Symbol,
@@ -93,7 +94,9 @@ class AVNU(Exchange):
         self, symbol: Symbol, amount: decimal.Decimal, keep_best: bool = True, **_
     ) -> asyncio.Queue:
         queue = asyncio.Queue()
-        asyncio.create_task(self._handle_ticker(queue, symbol, keep_best, amount))
+        asyncio.create_task(
+            self._handle_prices_quotes(queue, symbol, keep_best, amount)
+        )
 
         return queue
 
