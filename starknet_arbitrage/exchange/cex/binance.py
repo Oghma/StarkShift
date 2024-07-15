@@ -20,6 +20,9 @@ class Binance(Exchange):
         self._ticker_queues = {}
         self._wallet_queue = asyncio.Queue()
 
+    def __str__(self) -> str:
+        return f"{type(self).__name__}"
+
     async def _handle_ticker(self, symbol: str):
         """Handle ticker messages and connection."""
         queue = self._ticker_queues[symbol]

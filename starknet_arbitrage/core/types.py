@@ -10,6 +10,9 @@ class Token:
     address: str
     decimals: int
 
+    def __str__(self) -> str:
+        return f"{type(self).__name__}(name={self.name})"
+
 
 @dataclass
 class Symbol:

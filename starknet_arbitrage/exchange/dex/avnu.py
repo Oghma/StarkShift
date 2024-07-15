@@ -3,6 +3,7 @@
 import asyncio
 from decimal import Decimal
 import decimal
+import logging
 import typing
 
 from starknet_py.net.account.account import Account
@@ -23,6 +24,8 @@ URLS = {
     "sources": "/swap/v2/sources",
 }
 
+logger = logging.getLogger("bot")
+
 
 class AVNU(Exchange):
     """AVNU exchange."""
@@ -34,6 +37,9 @@ class AVNU(Exchange):
         self._available_dexes = [dex["name"] for dex in response.json()]
         self._last_prices = {dex: Decimal("0") for dex in self._available_dexes}
         self._wallet_queue = asyncio.Queue()
+
+    def __str__(self) -> str:
+        return f"{type(self).__name__}"
 
     async def _handle_ticker(
         self,
@@ -52,6 +58,7 @@ class AVNU(Exchange):
         async with aiohttp.ClientSession() as session:
 
             while True:
+                logger.debug(f"Fetching prices")
                 response = await session.get(url, params=params)
                 entries = await response.json()
 
@@ -76,6 +83,7 @@ class AVNU(Exchange):
         tokens = [ETH] if symbol is None else [symbol.base, symbol.quote]
 
         for token in tokens:
+            logger.debug(f"Fetching {token.address} balance")
             amount = await self._account.get_balance(token.address)
             await self._wallet_queue.put(
                 Wallet({"amount": amount}, ETH, Decimal(amount) / 10**18)
