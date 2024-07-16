@@ -43,3 +43,12 @@ class Wallet:
     @staticmethod
     def empty(token: Token) -> Wallet:
         return Wallet({}, token, Decimal(0))
+
+
+@dataclass
+class Order:
+    raw: dict
+    symbol: Symbol
+    amount: Decimal
+    price: Decimal
+    order: str
