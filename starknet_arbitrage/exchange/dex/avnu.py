@@ -76,8 +76,8 @@ class AVNU(Exchange):
                     quote_amount = quote_amount / (10**symbol.quote.decimals)
                     price = quote_amount / amount
 
-                    if self._last_prices[entry["custom"]] != price:
-                        self._last_prices[entry["custom"]] = price
+                    if self._last_prices[entry["sourceName"]] != price:
+                        self._last_prices[entry["sourceName"]] = price
                         entry["lastPrice"] = price
                         ticker = Ticker(entry, price, amount, price, quote_amount)
 
@@ -110,11 +110,11 @@ class AVNU(Exchange):
                 # We need to make two requests because a call to `/quotes` also
                 # sets the swap order. Therefore, if we want to buy `base` from
                 # `quote` we need the opposite ordeer (and a new `quoteId`)
-                resp_sell, resp_buy = asyncio.gather(
+                resp_sell, resp_buy = await asyncio.gather(
                     session.get(url, params=params_sell),
                     session.get(url, params=params_buy),
                 )
-                entries_sell, entries_buy = asyncio.gather(
+                entries_sell, entries_buy = await asyncio.gather(
                     resp_sell.json(), resp_buy.json()
                 )
 
@@ -125,8 +125,8 @@ class AVNU(Exchange):
                 quote_amount = quote_amount / (10**symbol.quote.decimals)
                 price = quote_amount / amount
 
-                if self._last_prices[entry["sourceName"]] != price:
-                    self._last_prices[entry["sourceName"]] = price
+                if self._last_prices["custom"] != price:
+                    self._last_prices["custom"] = price
                     entry["lastPrice"] = price
 
                     entry["sellId"] = entry["quoteId"]
@@ -170,7 +170,7 @@ class AVNU(Exchange):
         return self._wallet_queue
 
     async def buy_market_order(
-        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal
+        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal = 0.001
     ) -> Order:
         """Insert a buy market order."""
         url = f"{URLS['base']}/{URLS['build']}"
@@ -197,7 +197,7 @@ class AVNU(Exchange):
             )
 
     async def sell_market_order(
-        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal
+        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal = 0.001
     ) -> Order:
         """Insert a sell market order."""
         url = f"{URLS['base']}/{URLS['build']}"
