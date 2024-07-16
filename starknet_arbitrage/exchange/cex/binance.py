@@ -6,7 +6,7 @@ import typing
 
 import ccxt.pro
 
-from ...core.types import Symbol, Ticker, Token, Wallet
+from ...core.types import Symbol, Ticker, Token, Wallet, Order
 from ..base import Exchange
 
 
@@ -74,3 +74,27 @@ class Binance(Exchange):
     ) -> asyncio.Queue:
         asyncio.create_task(self._fetch_wallet(symbol))
         return self._wallet_queue
+
+    async def buy_market_order(self, symbol: Symbol, amount: Decimal, **_) -> Order:
+        """Insert a new buy market order."""
+        exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
+
+        order = await self._exchange_handle.create_order_ws(
+            exchange_symbol, "market", "buy", float(amount), params={"test": True}
+        )
+
+        return Order(
+            order, symbol, Decimal(str(order.price)), Decimal(str(order.amount)), "buy"
+        )
+
+    async def sell_market_order(self, symbol: Symbol, amount: Decimal, **_) -> Order:
+        """Insert a new sell market order."""
+        exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
+
+        order = await self._exchange_handle.create_order_ws(
+            exchange_symbol, "market", "sell", float(amount), params={"test": True}
+        )
+
+        return Order(
+            order, symbol, Decimal(str(order.price)), Decimal(str(order.amount)), "sell"
+        )

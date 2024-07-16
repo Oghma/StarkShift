@@ -10,7 +10,7 @@ from starknet_py.net.account.account import Account
 import aiohttp
 import requests
 
-from ...core.types import Symbol, Ticker, Token, Wallet
+from ...core.types import Order, Symbol, Ticker, Token, Wallet
 from ..base import Exchange
 
 ETH = Token(
@@ -23,6 +23,7 @@ URLS = {
     "quotes": "swap/v2/quotes",
     "prices": "swap/v2/prices",
     "sources": "/swap/v2/sources",
+    "build": "/swap/v2/build",
 }
 
 logger = logging.getLogger("bot")
@@ -150,3 +151,57 @@ class AVNU(Exchange):
     ) -> asyncio.Queue:
         asyncio.create_task(self._fetch_balance(symbol))
         return self._wallet_queue
+
+    async def buy_market_order(
+        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal
+    ) -> Order:
+        """Insert a buy market order."""
+        url = f"{URLS['base']}/{URLS['build']}"
+        # NOTE: `slippage` is hardcoded to 0.1%
+        payload = {
+            "slippage": slippage,
+            "takerAddress": self._account.address,
+            "quoteId": ticker.raw["quoteId"],
+            "includeApprove": True,
+        }
+
+        # FIXME: Share session with `handle_prices_quotes`
+        async with aiohttp.ClientSession() as session:
+            response = await session.post(url, json=payload)
+            calls = await response.json()
+            transaction_hash = await self._account.execute_v3(calls)
+
+            # Refresh wallet balances
+            asyncio.create_task(self._fetch_balance(symbol))
+
+            # NOTE: Transaction does not return swapped amounts. Simulate them
+            return Order(
+                {"transaction_hash": transaction_hash}, symbol, amount, 0, "buy"
+            )
+
+    async def sell_market_order(
+        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal
+    ) -> Order:
+        """Insert a sell market order."""
+        url = f"{URLS['base']}/{URLS['build']}"
+        # NOTE: `slippage` is hardcoded to 0.1%
+        payload = {
+            "slippage": slippage,
+            "takerAddress": self._account.address,
+            "quoteId": ticker.raw["quoteId"],
+            "includeApprove": True,
+        }
+
+        # FIXME: Share session with `handle_prices_quotes`
+        async with aiohttp.ClientSession() as session:
+            response = await session.post(url, json=payload)
+            calls = await response.json()
+            transaction_hash = await self._account.execute_v3(calls)
+
+            # Refresh wallet balances
+            asyncio.create_task(self._fetch_balance(symbol))
+
+            # NOTE: Transaction does not return swapped amounts. Simulate them
+            return Order(
+                {"transaction_hash": transaction_hash}, symbol, amount, 0, "sell"
+            )
