@@ -92,7 +92,12 @@ class AVNU(Exchange):
         amount: decimal.Decimal,
     ):
         url = f"{URLS['base']}/{URLS['quotes']}"
-        params = {
+        params_sell = {
+            "sellAmount": hex(amount * 10 ** int(symbol.base.decimals)),
+            "sellTokenAddress": symbol.base.address,
+            "buyTokenAddress": symbol.quote.address,
+        }
+        params_buy = {
             "sellAmount": hex(amount * 10 ** int(symbol.base.decimals)),
             "sellTokenAddress": symbol.base.address,
             "buyTokenAddress": symbol.quote.address,
@@ -102,10 +107,19 @@ class AVNU(Exchange):
 
             while True:
                 logger.debug(f"Fetching quotes")
-                response = await session.get(url, params=params)
-                entries = await response.json()
-                # `entries` is a list with one element
-                entry = entries[0]
+                # We need to make two requests because a call to `/quotes` also
+                # sets the swap order. Therefore, if we want to buy `base` from
+                # `quote` we need the opposite ordeer (and a new `quoteId`)
+                resp_sell, resp_buy = asyncio.gather(
+                    session.get(url, params=params_sell),
+                    session.get(url, params=params_buy),
+                )
+                entries_sell, entries_buy = asyncio.gather(
+                    resp_sell.json(), resp_buy.json()
+                )
+
+                # `entries_sell` is a list with one element
+                entry = entries_sell[0]
 
                 quote_amount = decimal.Decimal(int(entry["buyAmount"], 16))
                 quote_amount = quote_amount / (10**symbol.quote.decimals)
@@ -114,6 +128,9 @@ class AVNU(Exchange):
                 if self._last_prices[entry["sourceName"]] != price:
                     self._last_prices[entry["sourceName"]] = price
                     entry["lastPrice"] = price
+
+                    entry["sellId"] = entry["quoteId"]
+                    entry["buyId"] = entries_buy[0]["quoteId"]
                     ticker = Ticker(entry, price, amount, price, quote_amount)
 
                     await queue.put(ticker)
