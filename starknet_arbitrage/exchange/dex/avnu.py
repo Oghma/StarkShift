@@ -35,22 +35,25 @@ class AVNU(Exchange):
         self._account = account
         # Fetch available dexes
         response = requests.get(f"{URLS['base']}/{URLS['sources']}")
-        self._available_dexes = [dex["name"] for dex in response.json()]
-        self._last_prices = {dex: Decimal("0") for dex in self._available_dexes}
+        available_dexes = [
+            dex["name"] for dex in response.json() if dex["type"] == "DEX"
+        ]
+        available_dexes.append("custom")
+
+        self._last_prices = {dex: Decimal("0") for dex in available_dexes}
         self._wallet_queue = asyncio.Queue()
 
     def __str__(self) -> str:
         return f"{type(self).__name__}"
 
-    async def _handle_prices_quotes(
+    async def _handle_prices(
         self,
-        endpoint: str,
         queue: asyncio.Queue,
         symbol: Symbol,
         keep_best: bool,
         amount: decimal.Decimal,
     ):
-        url = f"{URLS['base']}/{URLS[endpoint]}"
+        url = f"{URLS['base']}/{URLS['prices']}"
         params = {
             "sellAmount": hex(amount * 10 ** int(symbol.base.decimals)),
             "sellTokenAddress": symbol.base.address,
@@ -72,12 +75,47 @@ class AVNU(Exchange):
                     quote_amount = quote_amount / (10**symbol.quote.decimals)
                     price = quote_amount / amount
 
-                    if self._last_prices[entry["sourceName"]] != price:
-                        self._last_prices[entry["sourceName"]] = price
+                    if self._last_prices[entry["custom"]] != price:
+                        self._last_prices[entry["custom"]] = price
                         entry["lastPrice"] = price
                         ticker = Ticker(entry, price, amount, price, quote_amount)
 
                         await queue.put(ticker)
+
+                await asyncio.sleep(1)
+
+    async def _handle_quotes(
+        self,
+        queue: asyncio.Queue,
+        symbol: Symbol,
+        amount: decimal.Decimal,
+    ):
+        url = f"{URLS['base']}/{URLS['quotes']}"
+        params = {
+            "sellAmount": hex(amount * 10 ** int(symbol.base.decimals)),
+            "sellTokenAddress": symbol.base.address,
+            "buyTokenAddress": symbol.quote.address,
+        }
+
+        async with aiohttp.ClientSession() as session:
+
+            while True:
+                logger.debug(f"Fetching quotes")
+                response = await session.get(url, params=params)
+                entries = await response.json()
+                # `entries` is a list with one element
+                entry = entries[0]
+
+                quote_amount = decimal.Decimal(int(entry["buyAmount"], 16))
+                quote_amount = quote_amount / (10**symbol.quote.decimals)
+                price = quote_amount / amount
+
+                if self._last_prices[entry["sourceName"]] != price:
+                    self._last_prices[entry["sourceName"]] = price
+                    entry["lastPrice"] = price
+                    ticker = Ticker(entry, price, amount, price, quote_amount)
+
+                    await queue.put(ticker)
 
                 await asyncio.sleep(1)
 
@@ -92,22 +130,18 @@ class AVNU(Exchange):
             )
 
     async def subscribe_ticker(
-        self, symbol: Symbol, amount: decimal.Decimal, keep_best: bool = True, **_
+        self, symbol: Symbol, amount: decimal.Decimal, **_
     ) -> asyncio.Queue:
         queue = asyncio.Queue()
-        asyncio.create_task(
-            self._handle_prices_quotes("quotes", queue, symbol, keep_best, amount)
-        )
+        asyncio.create_task(self._handle_quotes(queue, symbol, amount))
 
         return queue
 
     async def subscribe_prices(
-        self, symbol: Symbol, amount: decimal.Decimal, keep_best: bool = True, **_
+        self, symbol: Symbol, amount: decimal.Decimal, keep_best: bool = True
     ) -> asyncio.Queue:
         queue = asyncio.Queue()
-        asyncio.create_task(
-            self._handle_prices_quotes("prices", queue, symbol, keep_best, amount)
-        )
+        asyncio.create_task(self._handle_prices(queue, symbol, keep_best, amount))
 
         return queue
 
