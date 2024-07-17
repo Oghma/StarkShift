@@ -75,7 +75,9 @@ class Binance(Exchange):
         asyncio.create_task(self._fetch_wallet(symbol))
         return self._wallet_queue
 
-    async def buy_market_order(self, symbol: Symbol, amount: Decimal, **_) -> Order:
+    async def buy_market_order(
+        self, symbol: Symbol, amount: Decimal, *_, **__
+    ) -> Order:
         """Insert a new buy market order."""
         exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
 
@@ -87,7 +89,9 @@ class Binance(Exchange):
             order, symbol, Decimal(str(order.price)), Decimal(str(order.amount)), "buy"
         )
 
-    async def sell_market_order(self, symbol: Symbol, amount: Decimal, **_) -> Order:
+    async def sell_market_order(
+        self, symbol: Symbol, amount: Decimal, *_, **__
+    ) -> Order:
         """Insert a new sell market order."""
         exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
 

@@ -22,8 +22,8 @@ URLS = {
     "base": "https://starknet.api.avnu.fi",
     "quotes": "swap/v2/quotes",
     "prices": "swap/v2/prices",
-    "sources": "/swap/v2/sources",
-    "build": "/swap/v2/build",
+    "sources": "swap/v2/sources",
+    "build": "swap/v2/build",
 }
 
 logger = logging.getLogger("bot")
@@ -174,10 +174,10 @@ class AVNU(Exchange):
     ) -> Order:
         """Insert a buy market order."""
         url = f"{URLS['base']}/{URLS['build']}"
-        # NOTE: `slippage` is hardcoded to 0.1%
+
         payload = {
             "slippage": slippage,
-            "takerAddress": self._account.address,
+            "takerAddress": hex(self._account.address),
             "quoteId": ticker.raw["quoteId"],
             "includeApprove": True,
         }
