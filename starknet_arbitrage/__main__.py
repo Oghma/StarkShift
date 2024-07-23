@@ -19,7 +19,6 @@ class ValidationError(Exception):
 
 
 class Config:
-
     REQUIRED_KEYS = {
         "BASE_ADDR",
         "BASE_DECIMALS",
@@ -74,7 +73,7 @@ async def main():
     chain = Starknet(config.node_url)
     account = chain.get_account(config.account_address, config.signer_key)
     logger.debug("Connecting to AVNU...")
-    avnu = AVNU(account)
+    avnu = AVNU(account, config.symbol)
 
     logger.debug("Connecting to binance...")
     binance = Binance(config.api_key, config.secret_key)

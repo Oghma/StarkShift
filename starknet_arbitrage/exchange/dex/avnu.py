@@ -32,7 +32,7 @@ logger = logging.getLogger("bot")
 class AVNU(Exchange):
     """AVNU exchange."""
 
-    def __init__(self, account: Account) -> None:
+    def __init__(self, account: Account, balance: Symbol) -> None:
         self._account = account
         # Fetch available dexes
         response = requests.get(f"{URLS['base']}/{URLS['sources']}")
@@ -43,6 +43,8 @@ class AVNU(Exchange):
 
         self._last_prices = {dex: Decimal("0") for dex in available_dexes}
         self._wallet_queue = asyncio.Queue()
+
+        asyncio.create_task(self._fetch_balance(balance))
 
     def __str__(self) -> str:
         return f"{type(self).__name__}"
@@ -62,7 +64,6 @@ class AVNU(Exchange):
         }
 
         async with aiohttp.ClientSession() as session:
-
             while True:
                 logger.debug(f"Fetching prices")
                 response = await session.get(url, params=params)
@@ -104,7 +105,6 @@ class AVNU(Exchange):
         }
 
         async with aiohttp.ClientSession() as session:
-
             while True:
                 logger.debug(f"Fetching quotes")
                 # We need to make two requests because a call to `/quotes` also
@@ -162,12 +162,6 @@ class AVNU(Exchange):
         asyncio.create_task(self._handle_prices(queue, symbol, keep_best, amount))
 
         return queue
-
-    async def subscribe_wallet(
-        self, symbol: typing.Optional[Symbol] = None
-    ) -> asyncio.Queue:
-        asyncio.create_task(self._fetch_balance(symbol))
-        return self._wallet_queue
 
     async def buy_market_order(
         self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal = 0.001

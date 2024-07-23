@@ -32,9 +32,6 @@ class Binance(Exchange):
         self._secret = secret_key.encode("utf8")
         self._symbols = {}
 
-        # TODO: Remove
-        self._check_tokens = None
-
         asyncio.create_task(self._initialize(api_key))
 
         self._ticker_queues = {}
@@ -125,17 +122,10 @@ class Binance(Exchange):
         send all tokens.
 
         """
-        tokens = (
-            {}
-            if self._check_tokens is None
-            else {token.name: token for token in self._check_tokens}
-        )
-
         for balance in msg["B"]:
-            if not tokens or msg["a"] in tokens:
-                await self._wallet_queue.put(
-                    Wallet(balance, Token(balance["a"]), Decimal(balance["f"]))
-                )
+            await self._wallet_queue.put(
+                Wallet(balance, Token(balance["a"]), Decimal(balance["f"]))
+            )
 
     async def subscribe_ticker(self, symbol: Symbol, **_) -> asyncio.Queue:
         """Subscribe to the ticker."""
@@ -153,14 +143,6 @@ class Binance(Exchange):
         await self._ws_session.send_json(payload)
         logger.debug(f"Subscription sent for ticker {exchange_symbol}")
         return queue
-
-    async def subscribe_wallet(
-        self, symbol: typing.Optional[Symbol] = None
-    ) -> asyncio.Queue:
-        if symbol is not None:
-            self._check_tokens = [symbol.base, symbol.quote]
-
-        return self._wallet_queue
 
     async def buy_market_order(
         self, symbol: Symbol, amount: Decimal, *_args, **_kwargs

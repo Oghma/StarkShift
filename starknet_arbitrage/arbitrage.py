@@ -15,7 +15,6 @@ logger = logging.getLogger("bot")
 
 
 class Arbitrage:
-
     def __init__(
         self,
         exchanges: list[Exchange],
@@ -38,9 +37,6 @@ class Arbitrage:
 
     async def _initialize(self):
         for exchange in self._exchanges:
-            queue = await exchange.subscribe_wallet(self._symbol)
-            asyncio.create_task(self._merge_queues(queue, exchange))
-
             queue = await exchange.subscribe_ticker(
                 self._symbol, amount=int(self._trade_amount)
             )

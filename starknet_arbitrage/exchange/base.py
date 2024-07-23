@@ -14,12 +14,6 @@ class Exchange:
         """Subscribe to the ticker channel. Return the queue containing the messages"""
 
     @abc.abstractmethod
-    async def subscribe_wallet(
-        self, symbol: typing.Optional[Symbol] = None
-    ) -> asyncio.Queue:
-        """Subscribe to the wallet channel. Return the queue containing the messages"""
-
-    @abc.abstractmethod
     async def buy_market_order(
         self, symbol: Symbol, amount: Decimal, *args, **kwargs
     ) -> Order:
