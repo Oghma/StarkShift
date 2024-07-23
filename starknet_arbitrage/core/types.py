@@ -51,4 +51,4 @@ class Order:
     symbol: Symbol
     amount: Decimal
     price: Decimal
-    order: str
+    side: str
