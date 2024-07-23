@@ -42,7 +42,7 @@ class AVNU(Exchange):
         available_dexes.append("custom")
 
         self._last_prices = {dex: Decimal("0") for dex in available_dexes}
-        self._wallet_queue = asyncio.Queue()
+        self._receiver_queue = asyncio.Queue()
 
         asyncio.create_task(self._fetch_balance(balance))
 
@@ -51,7 +51,6 @@ class AVNU(Exchange):
 
     async def _handle_prices(
         self,
-        queue: asyncio.Queue,
         symbol: Symbol,
         keep_best: bool,
         amount: decimal.Decimal,
@@ -82,13 +81,12 @@ class AVNU(Exchange):
                         entry["lastPrice"] = price
                         ticker = Ticker(entry, price, amount, price, quote_amount)
 
-                        await queue.put(ticker)
+                        await self._receiver_queue.put(ticker)
 
                 await asyncio.sleep(1)
 
     async def _handle_quotes(
         self,
-        queue: asyncio.Queue,
         symbol: Symbol,
         amount: decimal.Decimal,
     ):
@@ -133,7 +131,7 @@ class AVNU(Exchange):
                     entry["buyId"] = entries_buy[0]["quoteId"]
                     ticker = Ticker(entry, price, amount, price, quote_amount)
 
-                    await queue.put(ticker)
+                    await self._receiver_queue.put(ticker)
 
                 await asyncio.sleep(1)
 
@@ -143,25 +141,17 @@ class AVNU(Exchange):
         for token in tokens:
             logger.debug(f"Fetching {token.address} balance")
             amount = await self._account.get_balance(token.address)
-            await self._wallet_queue.put(
+            await self._receiver_queue.put(
                 Wallet({"amount": amount}, ETH, Decimal(amount) / 10**18)
             )
 
-    async def subscribe_ticker(
-        self, symbol: Symbol, amount: decimal.Decimal, **_
-    ) -> asyncio.Queue:
-        queue = asyncio.Queue()
-        asyncio.create_task(self._handle_quotes(queue, symbol, amount))
-
-        return queue
+    async def subscribe_ticker(self, symbol: Symbol, amount: decimal.Decimal, **_):
+        asyncio.create_task(self._handle_quotes(symbol, amount))
 
     async def subscribe_prices(
         self, symbol: Symbol, amount: decimal.Decimal, keep_best: bool = True
-    ) -> asyncio.Queue:
-        queue = asyncio.Queue()
-        asyncio.create_task(self._handle_prices(queue, symbol, keep_best, amount))
-
-        return queue
+    ):
+        asyncio.create_task(self._handle_prices(symbol, keep_best, amount))
 
     async def buy_market_order(
         self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal = 0.001
@@ -189,6 +179,10 @@ class AVNU(Exchange):
             return Order(
                 {"transaction_hash": transaction_hash}, symbol, amount, 0, "buy"
             )
+
+    def receiver_queue(self) -> asyncio.Queue:
+        """Return the queue containing the messages from the Exchange."""
+        return self._receiver_queue
 
     async def sell_market_order(
         self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal = 0.001

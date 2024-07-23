@@ -31,11 +31,9 @@ class Binance(Exchange):
         self._api_key = api_key
         self._secret = secret_key.encode("utf8")
         self._symbols = {}
+        self._receiver_queue = asyncio.Queue()
 
         asyncio.create_task(self._initialize(api_key))
-
-        self._ticker_queues = {}
-        self._wallet_queue = asyncio.Queue()
 
     def __str__(self) -> str:
         return f"{type(self).__name__}"
@@ -100,8 +98,7 @@ class Binance(Exchange):
             Decimal(msg["p"]),
             msg["S"].lower(),
         )
-        queue = self._ticker_queues[(msg["s"])]
-        await queue.put(order)
+        await self._receiver_queue.put(order)
 
     async def _handle_ticker(self, msg: dict):
         """Handle ticker messages."""
@@ -112,8 +109,7 @@ class Binance(Exchange):
             Decimal(msg["a"]),
             Decimal(msg["A"]),
         )
-        queue = self._ticker_queues[(msg["s"])]
-        await queue.put(ticker)
+        await self._receiver_queue.put(ticker)
 
     async def _handle_wallet(self, msg: dict):
         """Handle message balances.
@@ -123,7 +119,7 @@ class Binance(Exchange):
 
         """
         for balance in msg["B"]:
-            await self._wallet_queue.put(
+            await self._receiver_queue.put(
                 Wallet(balance, Token(balance["a"]), Decimal(balance["f"]))
             )
 
@@ -167,6 +163,10 @@ class Binance(Exchange):
             BASE_URLS["http"] + ENDPOINTS["order"], params=params
         ) as response:
             await response.json()
+
+    def receiver_queue(self) -> asyncio.Queue:
+        """Return the queue containing the messages from the Exchange."""
+        return self._receiver_queue
 
     async def sell_market_order(
         self, symbol: Symbol, amount: Decimal, *_args, **_kwargs
