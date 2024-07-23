@@ -9,8 +9,8 @@ from decimal import Decimal
 @dataclass
 class Token:
     name: str
-    address: str
-    decimals: int
+    address: str = ""
+    decimals: int = 18
 
     def __str__(self) -> str:
         return f"{type(self).__name__}(name={self.name})"
