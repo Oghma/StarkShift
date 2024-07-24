@@ -15,7 +15,11 @@ from ...core.types import Order, Symbol, Ticker, Token, Wallet
 from ..base import Exchange
 
 BASE_URLS = {"http": "https://api.binance.com/", "wss": "wss://stream.binance.com:443/"}
-ENDPOINTS = {"listenKey": "api/v3/userDataStream", "order": "api/v3/order "}
+ENDPOINTS = {
+    "listenKey": "api/v3/userDataStream",
+    "order": "api/v3/order ",
+    "account": "api/v3/account",
+}
 
 # Update the listen key every 30 minutes
 LISTEN_KEY_UPDATE_EVERY = 1800
@@ -56,6 +60,7 @@ class Binance(Exchange):
         )
 
         asyncio.create_task(self._handle_connection())
+        asyncio.create_task(self._fetch_wallet())
         self._initialized.set()
 
     async def _keep_alive(self, listen_key: dict[str, str]):
@@ -73,6 +78,24 @@ class Binance(Exchange):
         msg = payload.encode("utf8")
         digest = hmac.new(self._secret, msg, hashlib.sha256)
         return digest.hexdigest()
+
+    async def _fetch_wallet(self):
+        """Fetch account balances."""
+        url = BASE_URLS["http"] + ENDPOINTS["account"]
+
+        params = {"omitZeroBalances": "true", "timestamp": int(time.time() * 1000)}
+        payload = "&".join(
+            [f"{param}={value}" for param, value in sorted(params.items())]
+        )
+        params["signature"] = self._sign_message(payload)
+
+        async with self._session.get(url, params=params) as resp:
+            response = await resp.json()
+
+            for balance in response["balances"]:
+                await self._receiver_queue.put(
+                    Wallet(balance, Token(balance["asset"]), Decimal(balance["free"]))
+                )
 
     async def _handle_connection(self):
         """Handle websocket connection."""
