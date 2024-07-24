@@ -6,8 +6,6 @@ from decimal import Decimal
 import logging
 from typing import Any
 
-from attr import dataclass
-
 from .exchange.base import Exchange
 from .core.types import Symbol, Ticker, Wallet
 
@@ -37,9 +35,10 @@ class Arbitrage:
 
     async def _initialize(self):
         for exchange in self._exchanges:
-            queue = await exchange.subscribe_ticker(
+            await exchange.subscribe_ticker(
                 self._symbol, amount=int(self._trade_amount)
             )
+            queue = exchange.receiver_queue()
             asyncio.create_task(self._merge_queues(queue, exchange))
 
     def _calculate_spread(self, ask: Decimal, bid: Decimal) -> Decimal:
