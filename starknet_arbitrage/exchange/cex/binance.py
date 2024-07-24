@@ -6,7 +6,6 @@ import hashlib
 import hmac
 import logging
 import time
-import typing
 import uuid
 
 import aiohttp
@@ -146,14 +145,11 @@ class Binance(Exchange):
                 Wallet(balance, Token(balance["a"]), Decimal(balance["f"]))
             )
 
-    async def subscribe_ticker(self, symbol: Symbol, **_) -> asyncio.Queue:
+    async def subscribe_ticker(self, symbol: Symbol, **_):
         """Subscribe to the ticker."""
         await self._initialized.wait()
 
         exchange_symbol = f"{symbol.base.name}{symbol.quote.name}".lower()
-        queue = asyncio.Queue()
-        self._ticker_queues[exchange_symbol] = queue
-
         payload = {
             "method": "SUBSCRIBE",
             "params": [f"{exchange_symbol}@ticker"],
@@ -161,7 +157,6 @@ class Binance(Exchange):
         }
         await self._ws_session.send_json(payload)
         logger.debug(f"Subscription sent for ticker {exchange_symbol}")
-        return queue
 
     async def buy_market_order(
         self, symbol: Symbol, amount: Decimal, *_args, **_kwargs
@@ -173,7 +168,6 @@ class Binance(Exchange):
             "side": "BUY",
             "type": "MARKET",
             "quantity": str(amount),
-            "apiKey": self._api_key,
             "timestamp": int(time.time() * 1000),  # timestamp in milliseconds
         }
         payload = "&".join(
@@ -201,7 +195,6 @@ class Binance(Exchange):
             "side": "SELL",
             "type": "MARKET",
             "quantity": str(amount),
-            "apiKey": self._api_key,
             "timestamp": int(time.time() * 1000),  # timestamp in milliseconds
         }
         payload = "&".join(
