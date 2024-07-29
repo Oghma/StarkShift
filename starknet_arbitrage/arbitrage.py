@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from .exchange.base import Exchange
-from .core.types import Symbol, Ticker, Wallet
+from .core.types import Order, Symbol, Ticker, Wallet
 
 logger = logging.getLogger("bot")
 
@@ -87,6 +87,10 @@ class Arbitrage:
             match msg:
                 case Wallet():
                     wallets[exchange][msg.token.name] = msg
+                case Order():
+                    logger.info(
+                        f"{exchange} order executed. {msg.side}: {msg.amount} at {msg.price}"
+                    )
                 case Ticker():
                     # We want to buy at the lowest price
                     if msg.ask <= best_ask.ask:
