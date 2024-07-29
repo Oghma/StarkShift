@@ -4,7 +4,7 @@ import abc
 import asyncio
 from decimal import Decimal
 
-from ..core.types import Order, Symbol
+from ..core.types import Symbol
 
 
 class Exchange:
@@ -13,9 +13,7 @@ class Exchange:
         """Subscribe to the ticker channel."""
 
     @abc.abstractmethod
-    async def buy_market_order(
-        self, symbol: Symbol, amount: Decimal, *args, **kwargs
-    ) -> Order:
+    async def buy_market_order(self, symbol: Symbol, amount: Decimal, *args, **kwargs):
         """Insert a buy market order."""
 
     @abc.abstractmethod
@@ -23,7 +21,5 @@ class Exchange:
         """Return the queue containing the messages from the Exchange."""
 
     @abc.abstractmethod
-    async def sell_market_order(
-        self, symbol: Symbol, amount: Decimal, *args, **kwargs
-    ) -> Order:
+    async def sell_market_order(self, symbol: Symbol, amount: Decimal, *args, **kwargs):
         """Insert a sell market order."""
