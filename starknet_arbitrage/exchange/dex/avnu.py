@@ -145,6 +145,29 @@ class AVNU(Exchange):
                 Wallet({"amount": amount}, ETH, Decimal(amount) / 10**18)
             )
 
+    async def _wait_txn(
+        self,
+        transaction_hash: int,
+        symbol: Symbol,
+        amount: Decimal,
+        ticker: Ticker,
+        side: str,
+    ):
+        """Wait until transaction is confirmed. After create the order and update the balance."""
+        await self._account.client.wait_for_tx(transaction_hash)
+
+        order = Order(
+            {"transaction_hash": transaction_hash},
+            symbol,
+            amount,
+            # NOTE: `ask` and `bid` are the same
+            ticker.ask,
+            side,
+        )
+        await self._receiver_queue.put(order)
+
+        asyncio.create_task(self._fetch_balance(symbol))
+
     async def subscribe_ticker(self, symbol: Symbol, amount: decimal.Decimal, **_):
         asyncio.create_task(self._handle_quotes(symbol, amount))
 
@@ -154,8 +177,12 @@ class AVNU(Exchange):
         asyncio.create_task(self._handle_prices(symbol, keep_best, amount))
 
     async def buy_market_order(
-        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal = 0.001
-    ) -> Order:
+        self,
+        symbol: Symbol,
+        amount: Decimal,
+        ticker: Ticker,
+        slippage: Decimal = Decimal("0.001"),
+    ):
         """Insert a buy market order."""
         url = f"{URLS['base']}/{URLS['build']}"
 
@@ -172,12 +199,8 @@ class AVNU(Exchange):
             calls = await response.json()
             transaction_hash = await self._account.execute_v3(calls)
 
-            # Refresh wallet balances
-            asyncio.create_task(self._fetch_balance(symbol))
-
-            # NOTE: Transaction does not return swapped amounts. Simulate them
-            return Order(
-                {"transaction_hash": transaction_hash}, symbol, amount, 0, "buy"
+            await self._wait_txn(
+                transaction_hash.transaction_hash, symbol, amount, ticker, "buy"
             )
 
     def receiver_queue(self) -> asyncio.Queue:
@@ -185,8 +208,12 @@ class AVNU(Exchange):
         return self._receiver_queue
 
     async def sell_market_order(
-        self, symbol: Symbol, amount: Decimal, ticker: Ticker, slippage: Decimal = 0.001
-    ) -> Order:
+        self,
+        symbol: Symbol,
+        amount: Decimal,
+        ticker: Ticker,
+        slippage: Decimal = Decimal("0.001"),
+    ):
         """Insert a sell market order."""
         url = f"{URLS['base']}/{URLS['build']}"
         # NOTE: `slippage` is hardcoded to 0.1%
@@ -203,10 +230,6 @@ class AVNU(Exchange):
             calls = await response.json()
             transaction_hash = await self._account.execute_v3(calls)
 
-            # Refresh wallet balances
-            asyncio.create_task(self._fetch_balance(symbol))
-
-            # NOTE: Transaction does not return swapped amounts. Simulate them
-            return Order(
-                {"transaction_hash": transaction_hash}, symbol, amount, 0, "sell"
+            await self._wait_txn(
+                transaction_hash.transaction_hash, symbol, amount, ticker, "sell"
             )
