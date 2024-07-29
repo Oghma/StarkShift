@@ -58,6 +58,11 @@ class Arbitrage:
         # NOTE: `wallet_ask` is the quote token balance. Convert in base
         amount = min(amount, wallet_bid, wallet_ask * ask.ask)
 
+        # FIXME: For how we fetch the order on AVNU it is better to trade only
+        # when we have `trade_amount`.
+        if amount != self._trade_amount:
+            return Decimal(0)
+
         return amount
 
     async def run(self):
