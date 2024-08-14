@@ -13,6 +13,7 @@ from .exchange.cex.binance import Binance
 from .exchange.dex.avnu import AVNU
 from .starknet import Starknet
 from .strategies.spread import SimpleSpreadStrategy
+from .strategies.amounts import SimpleAmountStrategy
 
 
 class ValidationError(Exception):
@@ -83,14 +84,19 @@ async def main():
     # Build spread strategy
     spread_strategy = SimpleSpreadStrategy(config.spread_threshold)
 
+    # Build amount strategy
+    amount_strategy = SimpleAmountStrategy(
+        config.max_amount_trade, config.min_amount_trade
+    )
+
     # Run bot
     logger.debug("All setup, running bot...")
     bot = Arbitrage(
         [binance, avnu],
         config.symbol,
         spread_strategy,
+        amount_strategy,
         config.max_amount_trade,
-        config.min_amount_trade,
     )
     await bot.run()
 
