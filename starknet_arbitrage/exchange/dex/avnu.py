@@ -7,6 +7,9 @@ import logging
 import typing
 
 from starknet_py.net.account.account import Account
+from starknet_py.hash.selector import get_selector_from_name
+from starknet_py.net.client_models import Call
+
 import aiohttp
 import requests
 
@@ -39,7 +42,7 @@ class AVNU(Exchange):
         available_dexes = [
             dex["name"] for dex in response.json() if dex["type"] == "DEX"
         ]
-        available_dexes.append("custom")
+        available_dexes.append("lastPrice")
 
         self._last_prices = {dex: Decimal("0") for dex in available_dexes}
         self._receiver_queue = asyncio.Queue()
@@ -64,7 +67,7 @@ class AVNU(Exchange):
 
         async with aiohttp.ClientSession() as session:
             while True:
-                logger.debug(f"Fetching prices")
+                logger.debug("Fetching prices")
                 response = await session.get(url, params=params)
                 entries = await response.json()
 
@@ -78,7 +81,6 @@ class AVNU(Exchange):
 
                     if self._last_prices[entry["sourceName"]] != price:
                         self._last_prices[entry["sourceName"]] = price
-                        entry["lastPrice"] = price
                         ticker = Ticker(entry, price, amount, price, quote_amount)
 
                         await self._receiver_queue.put(ticker)
@@ -104,7 +106,7 @@ class AVNU(Exchange):
 
         async with aiohttp.ClientSession() as session:
             while True:
-                logger.debug(f"Fetching quotes")
+                logger.debug("Fetching quotes")
                 # We need to make two requests because a call to `/quotes` also
                 # sets the swap order. Therefore, if we want to buy `base` from
                 # `quote` we need the opposite ordeer (and a new `quoteId`)
@@ -123,13 +125,12 @@ class AVNU(Exchange):
                 quote_amount = quote_amount / (10**symbol.quote.decimals)
                 price = quote_amount / amount
 
-                if self._last_prices["custom"] != price:
-                    self._last_prices["custom"] = price
-                    entry["lastPrice"] = price
+                if self._last_prices["lastPrice"] != price:
+                    self._last_prices["lastPrice"] = price
 
                     entry["sellId"] = entry["quoteId"]
                     entry["buyId"] = entries_buy[0]["quoteId"]
-                    ticker = Ticker(entry, price, amount, price, quote_amount)
+                    ticker = Ticker(entry, price, amount, price, amount)
 
                     await self._receiver_queue.put(ticker)
 
@@ -142,7 +143,7 @@ class AVNU(Exchange):
             logger.debug(f"Fetching {token.address} balance")
             amount = await self._account.get_balance(token.address)
             await self._receiver_queue.put(
-                Wallet({"amount": amount}, ETH, Decimal(amount) / 10**18)
+                Wallet({"amount": amount}, token, Decimal(amount) / 10**token.decimals)
             )
 
     async def _wait_txn(
@@ -181,13 +182,13 @@ class AVNU(Exchange):
         symbol: Symbol,
         amount: Decimal,
         ticker: Ticker,
-        slippage: Decimal = Decimal("0.001"),
+        slippage: Decimal = Decimal("0.01"),
     ):
         """Insert a buy market order."""
         url = f"{URLS['base']}/{URLS['build']}"
 
         payload = {
-            "slippage": slippage,
+            "slippage": str(slippage),
             "takerAddress": hex(self._account.address),
             "quoteId": ticker.raw["quoteId"],
             "includeApprove": True,
@@ -196,9 +197,22 @@ class AVNU(Exchange):
         # FIXME: Share session with `handle_prices_quotes`
         async with aiohttp.ClientSession() as session:
             response = await session.post(url, json=payload)
-            calls = await response.json()
-            transaction_hash = await self._account.execute_v3(calls)
+            resp_calls = await response.json()
 
+            # `resp_calls` is a dict containing `chainId` and `calls` keys. A
+            # call is a dict containing `contractAddress, entrypoint` and
+            # `calldata`. Values are hexed or string (the selector)
+            calls = [
+                Call(
+                    int(call["contractAddress"], 16),
+                    get_selector_from_name(call["entrypoint"]),
+                    [int(call_value, 16) for call_value in call["calldata"]],
+                )
+                for call in resp_calls["calls"]
+            ]
+
+            logger.info("sending order")
+            transaction_hash = await self._account.execute_v3(calls, auto_estimate=True)
             await self._wait_txn(
                 transaction_hash.transaction_hash, symbol, amount, ticker, "buy"
             )
@@ -212,14 +226,14 @@ class AVNU(Exchange):
         symbol: Symbol,
         amount: Decimal,
         ticker: Ticker,
-        slippage: Decimal = Decimal("0.001"),
+        slippage: Decimal = Decimal("0.01"),
     ):
         """Insert a sell market order."""
         url = f"{URLS['base']}/{URLS['build']}"
         # NOTE: `slippage` is hardcoded to 0.1%
         payload = {
-            "slippage": slippage,
-            "takerAddress": self._account.address,
+            "slippage": str(slippage),
+            "takerAddress": hex(self._account.address),
             "quoteId": ticker.raw["quoteId"],
             "includeApprove": True,
         }
@@ -227,9 +241,22 @@ class AVNU(Exchange):
         # FIXME: Share session with `handle_prices_quotes`
         async with aiohttp.ClientSession() as session:
             response = await session.post(url, json=payload)
-            calls = await response.json()
-            transaction_hash = await self._account.execute_v3(calls)
+            resp_calls = await response.json()
 
+            # `resp_calls` is a dict containing `chainId` and `calls` keys. A
+            # call is a dict containing `contractAddress, entrypoint` and
+            # `calldata`. Values are hexed or string (the selector)
+            calls = [
+                Call(
+                    int(call["contractAddress"], 16),
+                    get_selector_from_name(call["entrypoint"]),
+                    [int(call_value, 16) for call_value in call["calldata"]],
+                )
+                for call in resp_calls["calls"]
+            ]
+
+            logger.info("sending order")
+            transaction_hash = await self._account.execute_v3(calls, auto_estimate=True)
             await self._wait_txn(
                 transaction_hash.transaction_hash, symbol, amount, ticker, "sell"
             )
