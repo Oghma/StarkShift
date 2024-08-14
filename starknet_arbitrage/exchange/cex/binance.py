@@ -16,7 +16,7 @@ from ..base import Exchange
 BASE_URLS = {"http": "https://api.binance.com/", "wss": "wss://stream.binance.com:443/"}
 ENDPOINTS = {
     "listenKey": "api/v3/userDataStream",
-    "order": "api/v3/order ",
+    "order": "api/v3/order",
     "account": "api/v3/account",
 }
 
@@ -102,14 +102,19 @@ class Binance(Exchange):
         async for msg in self._ws_session:
             msg = msg.json()
 
-            if msg["e"] == "24hrTicker":
-                await self._handle_ticker(msg)
-            elif msg["e"] == "outboundAccountPosition":
-                await self._handle_wallet(msg)
-            elif msg["e"] == "executionReport":
-                await self._handle_order(msg)
-            else:
-                logger.debug("unknown message: ", msg)
+            if "e" not in msg:
+                logger.debug(f"unknown message: {msg}")
+                continue
+
+            match msg["e"]:
+                case "24hrTicker":
+                    await self._handle_ticker(msg)
+                case "outboundAccountPosition":
+                    await self._handle_wallet(msg)
+                case "executionReport":
+                    await self._handle_order(msg)
+                case _:
+                    logger.debug(f"unknown message: {msg}")
 
     async def _handle_order(self, msg: dict):
         """Handle execution report messages."""
@@ -163,6 +168,7 @@ class Binance(Exchange):
     ):
         """Insert a new buy market order."""
         exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
+        self._symbols[exchange_symbol] = symbol
         params = {
             "symbol": exchange_symbol,
             "side": "BUY",
@@ -170,12 +176,11 @@ class Binance(Exchange):
             "quantity": str(amount),
             "timestamp": int(time.time() * 1000),  # timestamp in milliseconds
         }
-        payload = "&".join(
-            [f"{param}={value}" for param, value in sorted(params.items())]
-        )
+        payload = "&".join([f"{param}={value}" for param, value in params.items()])
         signature = self._sign_message(payload)
         params["signature"] = signature
 
+        logger.info("sending order")
         async with self._session.post(
             BASE_URLS["http"] + ENDPOINTS["order"], params=params
         ) as response:
@@ -190,6 +195,7 @@ class Binance(Exchange):
     ):
         """Insert a new sell market order."""
         exchange_symbol = f"{symbol.base.name}{symbol.quote.name}"
+        self._symbols[exchange_symbol] = symbol
         params = {
             "symbol": exchange_symbol,
             "side": "SELL",
@@ -197,12 +203,11 @@ class Binance(Exchange):
             "quantity": str(amount),
             "timestamp": int(time.time() * 1000),  # timestamp in milliseconds
         }
-        payload = "&".join(
-            [f"{param}={value}" for param, value in sorted(params.items())]
-        )
+        payload = "&".join([f"{param}={value}" for param, value in params.items()])
         signature = self._sign_message(payload)
         params["signature"] = signature
 
+        logger.info("sending order")
         async with self._session.post(
             BASE_URLS["http"] + ENDPOINTS["order"], params=params
         ) as response:
