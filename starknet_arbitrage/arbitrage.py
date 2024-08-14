@@ -26,6 +26,7 @@ class Arbitrage:
         self._queue: asyncio.Queue[tuple[Any, Exchange]] = asyncio.Queue()
         self._trade_amount = trade_amount
         self._min_trade_amount = min_trade_amount
+        self._waiting_orders = 0
 
     async def _merge_queues(self, queue: asyncio.Queue, ex: Exchange):
         while True:
@@ -84,19 +85,24 @@ class Arbitrage:
                     logger.info(
                         f"{exchange} order executed. {msg.side}: {msg.amount} @ {msg.price}"
                     )
+                    self._waiting_orders -= 1
                 case Ticker():
                     # We want to buy at the lowest price
                     if msg.ask <= best_ask.ask:
                         best_ask = msg
                         exchange_ask = exchange
 
-                    # We want to sell at the highest price
+                    # We Want to sell at the highest price
                     if msg.bid >= best_bid.bid:
                         best_bid = msg
                         exchange_bid = exchange
 
                     # Same exchange, skip
                     if exchange_bid == exchange_ask:
+                        continue
+
+                    # Check if there are pending orders
+                    if self._waiting_orders > 0:
                         continue
 
                     spread = self._calculate_spread(
@@ -120,6 +126,8 @@ class Arbitrage:
 
                         logger.debug(f"{exchange_ask}: buy: {amount} @ {best_ask.ask}")
                         logger.debug(f"{exchange_bid}: sell: {amount} @ {best_bid.bid}")
+
+                        self._waiting_orders = 2
 
                         await asyncio.gather(
                             exchange_ask.buy_market_order(
