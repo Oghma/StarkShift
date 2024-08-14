@@ -12,6 +12,7 @@ from .core.types import Symbol, Token
 from .exchange.cex.binance import Binance
 from .exchange.dex.avnu import AVNU
 from .starknet import Starknet
+from .strategies.spread import SimpleSpreadStrategy
 
 
 class ValidationError(Exception):
@@ -72,18 +73,22 @@ async def main():
     logger.debug("Connecting to starknet...")
     chain = Starknet(config.node_url)
     account = chain.get_account(config.account_address, config.signer_key)
+
     logger.debug("Connecting to AVNU...")
     avnu = AVNU(account, config.symbol)
 
     logger.debug("Connecting to binance...")
     binance = Binance(config.api_key, config.secret_key)
 
+    # Build spread strategy
+    spread_strategy = SimpleSpreadStrategy(config.spread_threshold)
+
     # Run bot
     logger.debug("All setup, running bot...")
     bot = Arbitrage(
         [binance, avnu],
         config.symbol,
-        config.spread_threshold,
+        spread_strategy,
         config.max_amount_trade,
         config.min_amount_trade,
     )

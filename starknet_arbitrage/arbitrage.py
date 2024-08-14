@@ -7,6 +7,7 @@ from typing import Any
 
 from .exchange.base import Exchange
 from .core.types import Order, Symbol, Ticker, Wallet
+from .strategies.spread import SpreadStrategy
 
 logger = logging.getLogger("bot")
 
@@ -16,16 +17,17 @@ class Arbitrage:
         self,
         exchanges: list[Exchange],
         symbol: Symbol,
-        spread_threshold: Decimal,
+        spread_strategy: SpreadStrategy,
         trade_amount: Decimal,
         min_trade_amount: Decimal,
     ):
         self._exchanges = exchanges
         self._symbol = symbol
-        self._threshold = spread_threshold
-        self._queue: asyncio.Queue[tuple[Any, Exchange]] = asyncio.Queue()
         self._trade_amount = trade_amount
         self._min_trade_amount = min_trade_amount
+        self._spread = spread_strategy
+
+        self._queue: asyncio.Queue[tuple[Any, Exchange]] = asyncio.Queue()
         self._waiting_orders = 0
 
     async def _merge_queues(self, queue: asyncio.Queue, ex: Exchange):
@@ -40,10 +42,6 @@ class Arbitrage:
             )
             queue = exchange.receiver_queue()
             asyncio.create_task(self._merge_queues(queue, exchange))
-
-    def _calculate_spread(self, ask: Decimal, bid: Decimal) -> Decimal:
-        numerator = bid - ask
-        return numerator / bid
 
     def _calculate_amount(
         self,
@@ -105,15 +103,14 @@ class Arbitrage:
                     if self._waiting_orders > 0:
                         continue
 
-                    spread = self._calculate_spread(
-                        best_ask.ask,
-                        best_bid.bid,
+                    (profitable, spread) = self._spread.profitable_trade(
+                        best_ask, best_bid
                     )
                     logger.debug(
                         f"spread: {spread} best ask: {best_ask.ask} best bid: {best_bid.bid}"
                     )
-                    if spread >= self._threshold:
-                        logger.info(f"{spread} above the threshdold")
+                    if profitable:
+                        logger.info(f"spread: {spread}, catch the opportunity")
                         amount = self._calculate_amount(
                             best_ask,
                             best_bid,
