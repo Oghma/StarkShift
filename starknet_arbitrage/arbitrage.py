@@ -1,7 +1,6 @@
 """CEX-DEX arbitrage bot."""
 
 import asyncio
-import dataclasses
 from decimal import Decimal
 import logging
 from typing import Any
@@ -57,12 +56,6 @@ class Arbitrage:
         # Check wallets have enough balance
         # NOTE: `wallet_ask` is the quote token balance. Convert in base
         amount = min(amount, wallet_bid, wallet_ask * ask.ask)
-
-        # FIXME: For how we fetch the order on AVNU it is better to trade only
-        # when we have `trade_amount`.
-        if amount != self._trade_amount:
-            return Decimal(0)
-
         return amount
 
     async def run(self):
@@ -89,7 +82,7 @@ class Arbitrage:
                     wallets[exchange][msg.token.name] = msg
                 case Order():
                     logger.info(
-                        f"{exchange} order executed. {msg.side}: {msg.amount} at {msg.price}"
+                        f"{exchange} order executed. {msg.side}: {msg.amount} @ {msg.price}"
                     )
                 case Ticker():
                     # We want to buy at the lowest price
@@ -110,12 +103,9 @@ class Arbitrage:
                         best_ask.ask,
                         best_bid.bid,
                     )
-                    ba = dataclasses.replace(best_ask)
-                    ba.raw = exchange_ask
-                    bb = dataclasses.replace(best_bid)
-                    bb.raw = exchange_bid
-
-                    logger.debug(f"spread {spread} {ba.ask} {bb.bid} \n{ba}, {bb}")
+                    logger.debug(
+                        f"spread: {spread} best ask: {best_ask.ask} best bid: {best_bid.bid}"
+                    )
                     if spread >= self._threshold:
                         logger.info(f"{spread} above the threshdold")
                         amount = self._calculate_amount(
@@ -125,28 +115,17 @@ class Arbitrage:
                             wallets[exchange_bid][self._symbol.quote.name].amount,
                         )
 
-                        if amount <= self._min_trade_amount:
+                        if amount < self._min_trade_amount:
                             continue
 
-                        logger.debug(
-                            f"{exchange_ask}: buy: {amount} price: {best_ask.ask}"
-                        )
-                        logger.debug(
-                            f"{exchange_bid}: sell: {amount} price: {best_bid.bid}"
-                        )
+                        logger.debug(f"{exchange_ask}: buy: {amount} @ {best_ask.ask}")
+                        logger.debug(f"{exchange_bid}: sell: {amount} @ {best_bid.bid}")
 
-                        order_ask, order_bid = await asyncio.gather(
+                        await asyncio.gather(
                             exchange_ask.buy_market_order(
                                 self._symbol, amount, best_ask
                             ),
                             exchange_bid.sell_market_order(
                                 self._symbol, amount, best_bid
                             ),
-                        )
-
-                        logger.info(
-                            f"{exchange_ask}: bought: {order_ask.amount} price: {order_ask.price}"
-                        )
-                        logger.info(
-                            f"{exchange_bid}: sold: {order_bid.amount} price: {order_bid.price}"
                         )
