@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from dotenv import dotenv_values
 from rich.logging import RichHandler
+from rich.traceback import install as traceback_install
 
 from .arbitrage import Arbitrage
 from .core.types import Symbol, Token
@@ -14,6 +15,10 @@ from .exchange.dex.avnu import AVNU
 from .starknet import Starknet
 from .strategies.spread import SimpleSpreadStrategy
 from .strategies.amounts import SimpleAmountStrategy
+
+
+# Install rich traceback handler for a better traceback experience
+traceback_install(show_locals=False)
 
 
 class ValidationError(Exception):
@@ -61,6 +66,15 @@ class Config:
         self.min_amount_trade = Decimal(config["MIN_AMOUNT_TRADE"])
 
 
+def custom_exception_handler(loop, context):
+    # First, handle with default handler
+    loop.default_exception_handler(context)
+
+    # Terminates for any exception
+    if context.get("exception"):
+        loop.stop()
+
+
 async def main():
     # Bot settings
     logger = logging.getLogger("bot")
@@ -69,6 +83,10 @@ async def main():
     # Load config
     config = {**dotenv_values(".env"), **os.environ}
     config = Config(config)
+
+    # Add a custom exception handler to shutdown when a coroutine fails
+    loop = asyncio.get_running_loop()
+    loop.set_exception_handler(custom_exception_handler)
 
     # Exchange initialisation
     logger.debug("Connecting to starknet...")
