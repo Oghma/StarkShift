@@ -73,12 +73,12 @@ class Arbitrage:
                     self._waiting_orders.discard(exchange)
                 case Ticker():
                     # We want to buy at the lowest price
-                    if msg.ask <= best_ask.ask:
+                    if msg.ask <= best_ask.ask or exchange_ask == exchange:
                         best_ask = msg
                         exchange_ask = exchange
 
                     # We Want to sell at the highest price
-                    if msg.bid >= best_bid.bid:
+                    if msg.bid >= best_bid.bid or exchange_bid == exchange:
                         best_bid = msg
                         exchange_bid = exchange
 
