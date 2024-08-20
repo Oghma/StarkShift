@@ -29,7 +29,7 @@ class Arbitrage:
         self._amount_strategy = amount_strategy
 
         self._queue: asyncio.Queue[tuple[Any, Exchange]] = asyncio.Queue()
-        self._waiting_orders = 0
+        self._waiting_orders = set()
 
     async def _merge_queues(self, queue: asyncio.Queue, ex: Exchange):
         while True:
@@ -70,7 +70,7 @@ class Arbitrage:
                     logger.info(
                         f"{exchange} order executed. {msg.side}: {msg.amount} @ {msg.price}"
                     )
-                    self._waiting_orders -= 1
+                    self._waiting_orders.discard(exchange)
                 case Ticker():
                     # We want to buy at the lowest price
                     if msg.ask <= best_ask.ask:
@@ -87,7 +87,7 @@ class Arbitrage:
                         continue
 
                     # Check if there are pending orders
-                    if self._waiting_orders > 0:
+                    if self._waiting_orders:
                         continue
 
                     (profitable, spread) = self._spread.profitable_trade(
@@ -104,12 +104,16 @@ class Arbitrage:
                             wallets[exchange_bid][self._symbol.quote.name],
                         )
                     ):
-                        logger.info(f"spread: {spread}, catch the opportunity")
+                        logger.info(f"spread: {spread}, try to catch the opportunity")
+                        logger.debug(
+                            f"{exchange_ask}: putting buy: {amount} @ {best_ask.ask}"
+                        )
+                        logger.debug(
+                            f"{exchange_bid}: putting sell: {amount} @ {best_bid.bid}"
+                        )
 
-                        logger.debug(f"{exchange_ask}: buy: {amount} @ {best_ask.ask}")
-                        logger.debug(f"{exchange_bid}: sell: {amount} @ {best_bid.bid}")
-
-                        self._waiting_orders = 2
+                        self._waiting_orders.add(exchange_ask)
+                        self._waiting_orders.add(exchange_bid)
 
                         await asyncio.gather(
                             exchange_ask.buy_market_order(
