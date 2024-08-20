@@ -11,7 +11,6 @@ from starknet_py.hash.selector import get_selector_from_name
 from starknet_py.net.client_models import Call
 
 import aiohttp
-import requests
 
 from ...core.types import Order, Symbol, Ticker, Token, Wallet
 from ..base import Exchange
@@ -37,14 +36,6 @@ class AVNU(Exchange):
 
     def __init__(self, account: Account, balance: Symbol) -> None:
         self._account = account
-        # Fetch available dexes
-        response = requests.get(f"{URLS['base']}/{URLS['sources']}")
-        available_dexes = [
-            dex["name"] for dex in response.json() if dex["type"] == "DEX"
-        ]
-        available_dexes.append("lastPrice")
-
-        self._last_prices = {dex: Decimal("0") for dex in available_dexes}
         self._receiver_queue = asyncio.Queue()
 
         asyncio.create_task(self._fetch_balance(balance))
@@ -79,11 +70,8 @@ class AVNU(Exchange):
                     quote_amount = quote_amount / (10**symbol.quote.decimals)
                     price = quote_amount / amount
 
-                    if self._last_prices[entry["sourceName"]] != price:
-                        self._last_prices[entry["sourceName"]] = price
-                        ticker = Ticker(entry, price, amount, price, quote_amount)
-
-                        await self._receiver_queue.put(ticker)
+                    ticker = Ticker(entry, price, amount, price, quote_amount)
+                    await self._receiver_queue.put(ticker)
 
                 await asyncio.sleep(1)
 
@@ -125,15 +113,11 @@ class AVNU(Exchange):
                 quote_amount = quote_amount / (10**symbol.quote.decimals)
                 price = quote_amount / amount
 
-                if self._last_prices["lastPrice"] != price:
-                    self._last_prices["lastPrice"] = price
+                entry["sellId"] = entry["quoteId"]
+                entry["buyId"] = entries_buy[0]["quoteId"]
+                ticker = Ticker(entry, price, amount, price, amount)
 
-                    entry["sellId"] = entry["quoteId"]
-                    entry["buyId"] = entries_buy[0]["quoteId"]
-                    ticker = Ticker(entry, price, amount, price, amount)
-
-                    await self._receiver_queue.put(ticker)
-
+                await self._receiver_queue.put(ticker)
                 await asyncio.sleep(1)
 
     async def _fetch_balance(self, symbol: typing.Optional[Symbol] = None):
