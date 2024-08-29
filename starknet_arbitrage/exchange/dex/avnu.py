@@ -141,6 +141,9 @@ class AVNU(Exchange):
         """Wait until transaction is confirmed. After create the order and update the balance."""
         await self._account.client.wait_for_tx(transaction_hash)
 
+        # FIXME: maybe a temporary wait to allow avnu to update prices.
+        await asyncio.sleep(10)
+
         order = Order(
             {"transaction_hash": transaction_hash},
             symbol,
