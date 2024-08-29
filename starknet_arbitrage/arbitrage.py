@@ -94,7 +94,7 @@ class Arbitrage:
                         best_ask, best_bid
                     )
                     logger.debug(
-                        f"spread: {spread} best ask: {best_ask.ask} best bid: {best_bid.bid}"
+                        f"spread: {spread:.8f} best ask: {best_ask.ask:.8f} best bid: {best_bid.bid:.8f}"
                     )
                     if profitable and (
                         amount := self._amount_strategy.calculate_amount(
@@ -104,7 +104,9 @@ class Arbitrage:
                             wallets[exchange_bid][self._symbol.quote.name],
                         )
                     ):
-                        logger.info(f"spread: {spread}, try to catch the opportunity")
+                        logger.info(
+                            f"spread: {spread:.8f}, try to catch the opportunity"
+                        )
                         logger.debug(
                             f"{exchange_ask}: putting buy: {amount} @ {best_ask.ask}"
                         )
