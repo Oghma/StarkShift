@@ -1,4 +1,4 @@
-# Starknet trades
+# StarkShift
 
 ## Installation
  The project uses the `starknet.py` library. See
