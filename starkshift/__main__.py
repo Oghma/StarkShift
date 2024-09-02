@@ -1,10 +1,16 @@
+from __future__ import annotations
+
+import argparse
 import asyncio
+from dataclasses import InitVar, dataclass, field
 import logging
 import os
 
-from decimal import Decimal
 
-from dotenv import dotenv_values
+from decimal import Decimal
+from typing import Any
+
+import yaml
 from rich.logging import RichHandler
 from rich.traceback import install as traceback_install
 
@@ -21,49 +27,57 @@ from .strategies.amounts import SimpleAmountStrategy
 traceback_install(show_locals=False)
 
 
-class ValidationError(Exception):
-    pass
-
-
+@dataclass
 class Config:
-    REQUIRED_KEYS = {
-        "BASE_ADDR",
-        "BASE_DECIMALS",
-        "BASE",
-        "QUOTE_ADDR",
-        "QUOTE_DECIMALS",
-        "QUOTE",
-        "API_KEY",
-        "SECRET_KEY",
-        "SIGNER_KEY",
-        "NODE_URL",
-        "SPREAD_THRESHOLD",
-        "MAX_AMOUNT_TRADE",
-    }
+    base: Token = field(init=False)
+    quote: Token = field(init=False)
+    symbol: Symbol = field(init=False)
+    api_key: str
+    secret_key: str
+    node_url: str
+    account_address: str
+    signer_key: str
+    spread_threshold: Decimal
+    max_amount_trade: Decimal
+    min_amount_trade: Decimal
 
-    def __init__(self, config: dict) -> None:
-        for key in self.REQUIRED_KEYS:
-            if key not in config:
-                raise ValidationError(f"Missing `{key}`")
+    base_name: InitVar[str]
+    base_decimals: InitVar[int]
+    base_address: InitVar[str]
+    quote_name: InitVar[str]
+    quote_decimals: InitVar[int]
+    quote_address: InitVar[str]
 
-        self.base = Token(
-            config["BASE"], config["BASE_ADDR"], int(config["BASE_DECIMALS"])
-        )
-        self.quote = Token(
-            config["QUOTE"], config["QUOTE_ADDR"], int(config["QUOTE_DECIMALS"])
-        )
+    def __post_init__(
+        self,
+        base_name: str,
+        base_decimals: int,
+        base_address: str,
+        quote_name: str,
+        quote_decimals: int,
+        quote_address: str,
+    ):
+        self.base = Token(base_name.upper(), base_address, base_decimals)
+        self.quote = Token(quote_name.upper(), quote_address, quote_decimals)
         self.symbol = Symbol(self.base, self.quote)
 
-        self.api_key = config["API_KEY"]
-        self.secret_key = config["SECRET_KEY"]
+    @classmethod
+    def from_dict(cls, config_dict: dict[str, Any]) -> Config:
+        for key in ["spread_threshold", "max_amount_trade", "min_amount_trade"]:
+            config_dict[key] = Decimal(str(config_dict[key]))
 
-        self.node_url = config["NODE_URL"]
-        self.account_address = config["ACCOUNT_ADDRESS"]
-        self.signer_key = config["SIGNER_KEY"]
+        return cls(**config_dict)
 
-        self.spread_threshold = Decimal(config["SPREAD_THRESHOLD"])
-        self.max_amount_trade = Decimal(config["MAX_AMOUNT_TRADE"])
-        self.min_amount_trade = Decimal(config["MIN_AMOUNT_TRADE"])
+    @classmethod
+    def load_config(cls, config_path: str = "config.yaml") -> Config:
+        with open(config_path, "r") as fpt:
+            config_dict = yaml.safe_load(fpt)
+
+        for key in config_dict:
+            if env_value := os.getenv(key.upper()):
+                config_dict[key] = env_value
+
+        return cls.from_dict(config_dict)
 
 
 def custom_exception_handler(loop, context):
@@ -75,14 +89,13 @@ def custom_exception_handler(loop, context):
         loop.stop()
 
 
-async def main():
+async def main(config_file: str):
     # Bot settings
     logger = logging.getLogger("bot")
     logger.setLevel(logging.DEBUG)
     logger.addHandler(RichHandler())
     # Load config
-    config = {**dotenv_values(".env"), **os.environ}
-    config = Config(config)
+    config = Config.load_config(config_file)
 
     # Add a custom exception handler to shutdown when a coroutine fails
     loop = asyncio.get_running_loop()
@@ -119,4 +132,20 @@ async def main():
     await bot.run()
 
 
-asyncio.run(main())
+DEFAULT_CONFIG_LOCATION = "config/config.yml"
+
+PARSER = argparse.ArgumentParser(
+    prog="python -m starkshift",
+    description="starkshift arbitrage bot.",
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+)
+PARSER.add_argument(
+    "config",
+    nargs="?",
+    default=DEFAULT_CONFIG_LOCATION,
+    help="path to the configuration file",
+    metavar="CONFIG_PATH",
+)
+ARGS = PARSER.parse_args()
+
+asyncio.run(main(ARGS.config))
