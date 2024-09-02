@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from dataclasses import InitVar, dataclass, field
 import logging
 import os
-
-
+from dataclasses import InitVar, dataclass, field
 from decimal import Decimal
 from typing import Any
 
@@ -19,8 +17,8 @@ from .core.types import Symbol, Token
 from .exchange.cex.binance import Binance
 from .exchange.dex.avnu import AVNU
 from .starknet import Starknet
-from .strategies.spread import SimpleSpreadStrategy
 from .strategies.amounts import SimpleAmountStrategy
+from .strategies.spread import SimpleSpreadStrategy
 
 
 # Install rich traceback handler for a better traceback experience
