@@ -1,0 +1,23 @@
+node_url: https://free-rpc.nethermind.io/mainnet-juno
+
+# ======== SYMBOL SETTINGS ========
+base_name: STRK
+base_address: "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
+base_decimals: 18
+
+quote_name: ETH
+quote_address: "0x53c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8"
+quote_decimals: 6
+
+max_amount_trade: 15
+min_amount_trade: 15
+spread_threshold: 0.01
+
+# WARNING! THIS ARE SENSITIVE DATA. CONSIDER WHETHER USE VIRTUAL ENVS
+# ======== EXCHANGE ========
+api_key: ""
+secret_key: ""
+
+# ======== ACCOUNT ========
+account_address: ""
+signer_key: ""
